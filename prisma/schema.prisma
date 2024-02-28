@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+datasource db {
+  provider = "postgresql"
+  url  	= env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model Store {
+  id           String     @id @default(cuid())
+  name         String
+  userId       String      @db.VarChar(255)
+  billboards   Billboard[] 
+  categories   Category[]  
+  products     Product[]   
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model Billboard {
+  id          String      @id @default(cuid())
+  storeId     String
+  store       Store       @relation(fields: [storeId], references: [id])
+  category    Category[]  
+  label       String
+  imageUrl    String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([storeId])
+}
+
+model Category {
+  id          String      @id @default(cuid())
+  name        String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  storeId     String      // Foreign Key to Store
+  store       Store       @relation(fields: [storeId], references: [id])
+
+  billboardId String?      // Foreign Key to Billboard
+  billboard   Billboard?  @relation(fields: [billboardId], references: [id])
+
+  products    Product[]   
+   
+
+  @@index([storeId])
+}
+
+model Product{
+  id          String      @id @default(cuid())
+  name        String
+  price       Float
+  description String
+  images      Images[]    
+  stock       Int
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  storeId     String      // Foreign Key to Store
+  store       Store       @relation(fields: [storeId], references: [id])
+
+  
+  category    Category[]    
+
+  variants    Variant[]
+
+  @@index([storeId])
+}
+
+model Variant{
+  id          String             @id @default(cuid())
+  name        String  
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  productId   String             // Foreign Key to Product
+  product     Product            @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+}
+
+model Images{
+  id         String @id @default(cuid()) 
+  label      String
+  url        String
+
+  productId  String // Foreign Key to Product
+  product    Product @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+}
