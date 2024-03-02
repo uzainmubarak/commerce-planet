@@ -46,6 +46,20 @@ const NavLinks: React.FC<React.HTMLAttributes<Props>> = ({
         pathName.includes(`/${params.storeId}/products/${params.productId}`),
     },
     {
+      href: `/${params.storeId}/colors`,
+      label: "Colors",
+      active:
+        pathName === `/${params.storeId}/colors` ||
+        pathName.includes(`/${params.storeId}/colors/${params.colorId}`),
+    },
+    {
+      href: `/${params.storeId}/sizes`,
+      label: "Sizes",
+      active:
+        pathName === `/${params.storeId}/sizes` ||
+        pathName.includes(`/${params.storeId}/sizes/${params.sizeId}`),
+    },
+    {
       href: `/${params.storeId}/settings`,
       label: "Settings",
       active: pathName === `/${params.storeId}/settings`,

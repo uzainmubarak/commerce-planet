@@ -16,9 +16,12 @@ model Store {
   userId       String      @db.VarChar(255)
   billboards   Billboard[] 
   categories   Category[]  
-  products     Product[]   
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  products     Product[]    @relation("StoreToProduct")
+  sizes        Size[]       @relation("StoreToSize")
+  colors       Color[]      @relation("StoreToColor")
+  orders       Order[]      @relation("StoreToOrder")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }
 
 model Billboard {
@@ -46,52 +49,97 @@ model Category {
   billboardId String?      // Foreign Key to Billboard
   billboard   Billboard?  @relation(fields: [billboardId], references: [id])
 
-  products    Product[]   
+  products    Product[]   @relation("CategoryToProduct") 
    
 
   @@index([storeId])
 }
 
-model Product{
-  id          String      @id @default(cuid())
+model Product {
+  id          String    @id @default(uuid())
+  storeId     String    // Foreign Key to Store
+  store       Store     @relation("StoreToProduct", fields: [storeId], references: [id])
+  categoryId  String    // Foreign Key to Category
+  category    Category  @relation("CategoryToProduct", fields: [categoryId], references: [id])
   name        String
-  price       Float
-  description String
-  images      Images[]    
-  stock       Int
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  storeId     String      // Foreign Key to Store
-  store       Store       @relation(fields: [storeId], references: [id])
-
-  
-  category    Category[]    
-
-  variants    Variant[]
+  price       Decimal
+  isFeatured  Boolean   @default(false)
+  isArchived  Boolean   @default(false)
+  sizeId      String    // Foreign Key to Size
+  size        Size      @relation(fields: [sizeId], references: [id])
+  colorId     String    // Foreign Key to Color
+  color       Color     @relation(fields: [colorId], references: [id])
+  images      Images[]   // Relation to Image model
+  orderItems  OrderItem[]   // Relation to Order model
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([storeId])
+  @@index([categoryId])
+  @@index([sizeId])
+  @@index([colorId])
 }
-
-model Variant{
-  id          String             @id @default(cuid())
-  name        String  
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-
-  productId   String             // Foreign Key to Product
-  product     Product            @relation(fields: [productId], references: [id])
-
-  @@index([productId])
-}
-
 model Images{
   id         String @id @default(cuid()) 
-  label      String
   url        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   productId  String // Foreign Key to Product
   product    Product @relation(fields: [productId], references: [id])
 
+  @@index([productId])
+}
+
+model Size {
+  id          String    @id @default(uuid())
+  storeId     String    // Foreign Key to Store
+  store       Store     @relation("StoreToSize", fields: [storeId], references: [id])
+  name        String
+  value       String
+  products    Product[] // Relation to Product model
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([storeId])
+}
+
+model Color {
+  id          String   @id @default(uuid())
+  storeId     String   // Foreign Key to Store
+  store       Store    @relation("StoreToColor", fields: [storeId], references: [id])
+  name        String
+  value       String
+  products    Product[] // Relation to Product model
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([storeId])
+}
+
+
+model Order {
+  id        String    @id @default(uuid())
+  storeId     String    // Foreign Key to Store
+  store       Store     @relation("StoreToOrder", fields: [storeId], references: [id])
+  orderItems OrderItem[] // Relation to OrderItem model
+  isPaid     Boolean   @default(false)
+  phone      String    @default("")
+  address    String    @default("")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([storeId])
+}
+
+// Intermediary for a many-to-many relationship
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String  // Foreign Key to Order
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String  // Foreign Key to Product
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
   @@index([productId])
 }

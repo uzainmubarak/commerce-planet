@@ -1,93 +1,114 @@
 "use client";
 
-import { Product } from "@prisma/client";
-import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Trash } from "lucide-react";
-import axios from "axios";
+import * as z from "zod"
+import axios from "axios"
+import { useState } from "react"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import { useToast } from "@/components/ui/use-toast";
+import { Trash } from "lucide-react"
+import { Category, Color, Images, Product, Size } from "@prisma/client"
+import { useParams, useRouter } from "next/navigation"
 
-import { ProductType, ProductSchema } from "@/schema/product-schema";
-import AlertModal from "@/components/modal/alert-modal";
-import Heading from "@/components/ui/heading";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import ImageUpload from "@/components/ui/image-upload";
-import { useToast } from "@/components/ui/use-toast";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
+} from "@/components/ui/form"
+import { Separator } from "@/components/ui/separator"
+import  Heading  from "@/components/ui/heading"
+import AlertModal  from "@/components/modal/alert-modal"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import ImageUpload from "@/components/ui/image-upload"
+import { Checkbox } from "@/components/ui/checkbox"
 
-type Props = {
-  initialData: Product | null;
+const formSchema = z.object({
+  name: z.string().min(1),
+  images: z.object({ url: z.string() }).array(),
+  price: z.coerce.number().min(1),
+  categoryId: z.string().min(1),
+  colorId: z.string().min(1),
+  sizeId: z.string().min(1),
+  isFeatured: z.boolean().default(false).optional(),
+  isArchived: z.boolean().default(false).optional()
+});
+
+type ProductFormValues = z.infer<typeof formSchema>
+
+interface ProductFormProps {
+  initialData: Product & {
+    images: Images[]
+  } | null;
+  categories: Category[];
+  colors: Color[];
+  sizes: Size[];
 };
 
-const ProductForm: React.FC<Props> = ({ initialData }) => {
+export const ProductForm: React.FC<ProductFormProps> = ({
+  initialData,
+  categories,
+  sizes,
+  colors
+}) => {
   const params = useParams();
   const router = useRouter();
 
-  const { toast } = useToast();
-
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isStock, setIsStock] = useState(true);
 
-  const form = useForm<ProductType>({
-    resolver: zodResolver(ProductSchema),
-    
-      defaultValues: initialData ? initialData : {
-        name: "",
-        description: "",
-        price: 0,
-        stock: 0,
-        image: [],
-      },
-    });
+  const title = initialData ? 'Edit product' : 'Create product';
+  const description = initialData ? 'Edit a product.' : 'Add a new product';
+  const toastMessage = initialData ? 'Product updated.' : 'Product created.';
+  const action = initialData ? 'Save changes' : 'Create';
+  const { toast } = useToast();
 
-  const title = initialData ? "Edit Product" : "Add New Product";
-  const description = initialData
-    ? "Edit your product"
-    : "Create a new product";
-  const toastMessage = initialData
-    ? "Product updated successfully"
-    : "Product created successfully";
-  const action = initialData ? "Update" : "Create";
+  const defaultValues = initialData ? {
+    ...initialData,
+    price: parseFloat(String(initialData?.price)),
+  } : {
+    name: '',
+    images: [],
+    price: 0,
+    categoryId: '',
+    colorId: '',
+    sizeId: '',
+    isFeatured: false,
+    isArchived: false,
+  }
 
-  const onSubmit = async (data: ProductType) => {
-    console.log(data);
-    // try {
-    //   setLoading(true);
-    //   if (!initialData) {
-    //     await axios.post(`/api/${params.storeId}/products`, data);
-    //   } else {
-    //     await axios.patch(
-    //       `/api/${params.storeId}/products/${params.productId}`,
-    //       data
-    //     );
-    //   }
-    //   router.refresh();
-    //   router.push(`/${params.storeId}/products`);
-    //   toast({
-    //     title: toastMessage,
-    //   });
-    // } catch (error: any) {
-    //   toast({
-    //     title: "Error",
-    //     description: error.message,
-    //     variant: "destructive",
-    //   });
-    // } finally {
-    //   setLoading(false);
-    // }
+  const form = useForm<ProductFormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues
+  });
+
+  const onSubmit = async (data: ProductFormValues) => {
+    try {
+      setLoading(true);
+      if (initialData) {
+        await axios.patch(`/api/${params.storeId}/products/${params.productId}`, data);
+      } else {
+        await axios.post(`/api/${params.storeId}/products`, data);
+      }
+      router.refresh();
+      router.push(`/${params.storeId}/products`);
+      toast({
+        title: toastMessage,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const onDelete = async () => {
@@ -97,157 +118,207 @@ const ProductForm: React.FC<Props> = ({ initialData }) => {
       router.refresh();
       router.push(`/${params.storeId}/products`);
       toast({
-        title: "Product deleted successfully",
+        title: toastMessage,
       });
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message,
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
       setOpen(false);
     }
-  };
+  }
 
   return (
     <>
-      <AlertModal
-        open={open}
-        onClose={() => setOpen(false)}
-        loading={loading}
-        onConfirm={onDelete}
-      />
-      <div className="flex items-center justify-between">
+    <AlertModal 
+      open={open} 
+      onClose={() => setOpen(false)}
+      onConfirm={onDelete}
+      loading={loading}
+    />
+     <div className="flex items-center justify-between">
         <Heading title={title} description={description} />
         {initialData && (
           <Button
             disabled={loading}
             variant="destructive"
             size="sm"
-            onClick={() => setOpen(true)}>
-            <Trash size="16" />
+            onClick={() => setOpen(true)}
+          >
+            <Trash className="h-4 w-4" />
           </Button>
         )}
       </div>
-
       <Separator />
-
       <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="space-y-8 w-full">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 w-full">
           <FormField
-            name="image"
             control={form.control}
+            name="images"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Image</FormLabel>
+                <FormLabel>Images</FormLabel>
                 <FormControl>
-                  <ImageUpload
-                    value={field.value.map((img) => img.url)}
-                    disabled={loading}
-                    onChange={(url) =>
-                      field.onChange([...field.value, { url }])
-                    }
-                    onRemove={(url) =>
-                      field.onChange([
-                        ...field.value.filter((current) => current.url !== url),
-                      ])
-                    }
+                  <ImageUpload 
+                    value={field.value.map((image) => image.url)} 
+                    disabled={loading} 
+                    onChange={(url) => field.onChange([...field.value, { url }])}
+                    onRemove={(url) => field.onChange([...field.value.filter((current) => current.url !== url)])}
                   />
                 </FormControl>
+                <FormMessage />
               </FormItem>
             )}
           />
           <div className="md:grid md:grid-cols-3 gap-8">
             <FormField
-              name="name"
               control={form.control}
+              name="name"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Name</FormLabel>
                   <FormControl>
-                    <Input
-                      disabled={loading}
-                      placeholder="Product name"
-                      {...field}
-                    />
+                    <Input disabled={loading} placeholder="Product name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          </div>
-
-          <div className="md:grid md:grid-cols-3 gap-8">
             <FormField
-              name="description"
               control={form.control}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Products description"
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="md:grid md:grid-cols-3 gap-8">
-            <FormField
               name="price"
-              control={form.control}
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Price</FormLabel>
                   <FormControl>
-                    <Input disabled={loading} placeholder="Price" {...field} />
+                    <Input type="number" disabled={loading} placeholder="9.99" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          </div>
-          <div className="md:grid md:grid-cols-3 gap-8">
             <FormField
-              name="stock"
               control={form.control}
+              name="categoryId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center justify-between">
-                    <span>Stock</span>
-                    <Switch
-                      checked={isStock}
-                      onCheckedChange={(e) => setIsStock(e)}
-                    />
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      disabled={loading || !isStock}
-                      placeholder="Stock"
-                      {...field}
-                    />
-                  </FormControl>
+                  <FormLabel>Category</FormLabel>
+                  <Select disabled={loading} onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue defaultValue={field.value} placeholder="Select a category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="sizeId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Size</FormLabel>
+                  <Select disabled={loading} onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue defaultValue={field.value} placeholder="Select a size" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {sizes.map((size) => (
+                        <SelectItem key={size.id} value={size.id}>{size.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="colorId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Color</FormLabel>
+                  <Select disabled={loading} onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue defaultValue={field.value} placeholder="Select a color" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {colors.map((color) => (
+                        <SelectItem key={color.id} value={color.id}>{color.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="isFeatured"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      // @ts-ignore
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Featured
+                    </FormLabel>
+                    <FormDescription>
+                      This product will appear on the home page
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="isArchived"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      // @ts-ignore
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Archived
+                    </FormLabel>
+                    <FormDescription>
+                      This product will not appear anywhere in the store.
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
           </div>
-
-          <Button disabled={loading} type="submit" className="ml-auto">
-            {action} Product
+          <Button disabled={loading} className="ml-auto" type="submit">
+            {action}
           </Button>
         </form>
       </Form>
     </>
   );
 };
-
-export default ProductForm;
